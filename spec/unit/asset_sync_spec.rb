@@ -227,6 +227,23 @@ describe AssetSync do
     end
   end
 
+  describe 'with periods included bucket name' do
+    before(:each) do
+      AssetSync.config = AssetSync::Config.new
+      AssetSync.config.fog_provider = "AWS"
+      AssetSync.config.fog_directory = "bucket.with.dots"
+    end
+
+    it "config.path_style? should be true" do
+      AssetSync.config.path_style?.should be_true
+    end
+
+    it "path_style? in fog_option should be true" do
+      AssetSync.config.fog_options[:path_style].should be_true
+    end
+
+  end
+
   describe 'with invalid yml' do
 
     before(:each) do
