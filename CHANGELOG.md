@@ -1,5 +1,21 @@
 # RELEASE HISTORY
 
+## v1.1.0 / 2014-03-23
+
+Version 1.1.0
+
+Changes:
+
+* Integration of the following pull requests:
+
+   * #249 - Add setting to control the public ACL on uploaded files
+   * #248 - Adding AWS IAM User Policy documentation
+   * #247 - config.fog_key_prefix
+   * #239 - Set path_style for S3 bucket name with dots
+   * #223 - Set Expires and Cache-Control headers for .gz files
+   * #222 - Allow config of 'log_silently' in yml
+
+
 ## v0.5.1 / 2012-10-22
 
 Version 0.5.1 (David Rice <me@davidjrice.co.uk>)
