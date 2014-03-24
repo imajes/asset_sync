@@ -29,7 +29,7 @@ module AssetSync
     end
 
     def path
-      self.config.public_path
+      self.config.public_path.strip
     end
 
     def ignored_files
@@ -69,29 +69,33 @@ module AssetSync
 
     def get_local_files
       if self.config.manifest
-        if ActionView::Base.respond_to?(:assets_manifest)
-          log "Using: Rails 4.0 manifest access"
-          manifest = Sprockets::Manifest.new(ActionView::Base.assets_manifest.environment, ActionView::Base.assets_manifest.dir)
-          return manifest.assets.values.map { |f| File.join(self.config.assets_prefix, f) }
-        elsif File.exists?(self.config.manifest_path)
-          log "Using: Manifest #{self.config.manifest_path}"
-          yml = YAML.load(IO.read(self.config.manifest_path))
-
-          return yml.map do |original, compiled|
-            # Upload font originals and compiled
-            if original =~ /^.+(eot|svg|ttf|woff)$/
-              [original, compiled]
-            else
-              compiled
-            end
-          end.flatten.map { |f| File.join(self.config.assets_prefix, f) }.uniq!
-        else
-          log "Warning: Manifest could not be found"
-        end
+        log "Using manifest approach"
+        get_local_from_manifest
+      else
+        log "Using: Directory Search of #{path}"
+        Dir["#{path}/**/**"].to_a
       end
-      log "Using: Directory Search of #{path}/#{self.config.assets_prefix}"
-      Dir.chdir(path) do
-        Dir["#{self.config.assets_prefix}/**/**"]
+    end
+
+    def get_local_from_manifest
+      if ActionView::Base.respond_to?(:assets_manifest)
+        log "Using: Rails 4.0 manifest access"
+        manifest = Sprockets::Manifest.new(ActionView::Base.assets_manifest.environment, ActionView::Base.assets_manifest.dir)
+        return manifest.assets.values.map { |f| File.join(self.config.assets_prefix, f) }
+      elsif File.exists?(self.config.manifest_path)
+        log "Using: Manifest #{self.config.manifest_path}"
+        yml = YAML.load(IO.read(self.config.manifest_path))
+
+        return yml.map do |original, compiled|
+          # Upload font originals and compiled
+          if original =~ /^.+(eot|svg|ttf|woff)$/
+            [original, compiled]
+          else
+            compiled
+          end
+        end.flatten.map { |f| File.join(self.config.assets_prefix, f) }.uniq!
+      else
+        log "Warning: Manifest could not be found"
       end
     end
 
@@ -129,9 +133,12 @@ module AssetSync
       one_year = 31557600
       ext = File.extname(f)[1..-1]
       mime = MultiMime.lookup(ext)
+
+      pathless_file = f.gsub("#{path}/", '')
+
       file = {
-        :key => "#{self.config.fog_key_prefix}#{f}",
-        :body => File.open("#{path}/#{f}"),
+        :key => "#{self.config.fog_key_prefix}#{pathless_file}",
+        :body => File.open(f),
         :public => self.config.fog_public,
         :content_type => mime
       }
@@ -211,13 +218,13 @@ module AssetSync
     def upload_files
       # get a fresh list of remote files
       remote_files = ignore_existing_remote_files? ? [] : get_remote_files
-      # fixes: https://github.com/rumblelabs/asset_sync/issues/19
+
       local_files_to_upload = local_files - ignored_files - remote_files + always_upload_files
       local_files_to_upload = (local_files_to_upload + get_non_fingerprinted(local_files_to_upload)).uniq
 
       # Upload new files
       local_files_to_upload.each do |f|
-        next unless File.file? "#{path}/#{f}" # Only files.
+        next unless File.file? f # Only files, folders aren't real on s3
         upload_file f
       end
 
